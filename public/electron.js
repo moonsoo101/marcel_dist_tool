@@ -11,7 +11,7 @@ function createWindow() {
         // 이것들은 제가 사용하는 설정이니 각자 알아서 설정 하십시오.
         //alwaysOnTop: true,
         center: true,
-        //fullscreen: true,
+        fullscreen: false,
         kiosk: !isDev,
         resizable: true,
         webPreferences: {
@@ -25,8 +25,12 @@ function createWindow() {
     // 3. and load the index.html of the app.
     if (isDev) {
         // 개발 중에는 개발 도구에서 호스팅하는 주소에서 로드
-        // BrowserWindow.addDevToolsExtension('C:\\Users\\정문수\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Extensions\\fmkadmapgofadopljbjfkapdkoienihi\\4.10.1_0')
         mainWindow.loadURL('http://localhost:3000');
+        // [REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS].forEach(extension => {
+        //   installExtension(extension)
+        //       .then((name) => console.log(`Added Extension: ${name}`))
+        //       .catch((err) => console.log('An error occurred: ', err));
+        // });
         mainWindow.webContents.openDevTools();
     }
     else {
