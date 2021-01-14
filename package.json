@@ -1,5 +1,6 @@
 {
-  "name": "dist-app",
+  "name": "MarcelDistApp",
+  "author": "Moonsoo Jeong",
   "version": "0.1.0",
   "private": true,
   "main": "public/electron.js",
@@ -17,6 +18,7 @@
     "axios": "^0.21.1",
     "cheerio": "^1.0.0-rc.5",
     "electron-is-dev": "^1.2.0",
+    "image-size": "^0.9.3",
     "immer": "^8.0.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
@@ -25,7 +27,8 @@
     "redux": "^4.0.5",
     "redux-devtools-extension": "^2.13.8",
     "typescript": "^4.1.3",
-    "web-vitals": "^0.2.4"
+    "web-vitals": "^0.2.4",
+    "electron-devtools-installer": "^3.1.1"
   },
   "resolutions": {
     "@types/react": "^16.9.53"
@@ -35,7 +38,7 @@
     "react-build": "react-scripts build",
     "react-test": "react-scripts test",
     "react-eject": "react-scripts eject",
-    "start": "concurrently \"cross-env BROWSER=none yarn react-start\" \"wait-on http://localhost:3000 && electron .\"",
+    "start": "tsc ./public/electron.ts && tsc ./public/preload.ts && concurrently \"cross-env BROWSER=none yarn react-start\" \"wait-on http://localhost:3000 && electron .\"",
     "build": "yarn react-build && electron-builder",
     "release": "yarn react-build && electron-builder --publish=always"
   },
@@ -63,5 +66,22 @@
     "electron": "^11.1.1",
     "electron-builder": "^22.9.1",
     "wait-on": "^5.2.1"
+  },
+  "build": {
+    "asar": false,
+    "productName": "Marcel dist App",
+    "appId": "com.moonsoo101.marceldistapp",
+    "directories": {
+        "buildResources": "build"     
+    },
+    "win": {
+        "target": "nsis",
+        "icon": "./public/icon.ico"
+    },
+    "nsis": {
+      "installerIcon": "./public/icon.ico",
+      "installerHeaderIcon": "./public/icon.ico",
+      "deleteAppDataOnUninstall": true
+    }
   }
 }

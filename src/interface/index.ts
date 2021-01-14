@@ -3,4 +3,5 @@ export interface IphotoObject {
     src: string;
     width: number;
     height: number;
+    new: boolean;
   }

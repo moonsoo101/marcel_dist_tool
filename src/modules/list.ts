@@ -1,5 +1,6 @@
 import { IphotoObject } from '../interface/index';
 import produce from 'immer';
+
 // 액션 타입을 선언합니다
 // 뒤에 as const 를 붙여줌으로써 나중에 액션 객체를 만들게 action.type 의 값을 추론하는 과정에서
 // action.type 이 string 으로 추론되지 않고 'counter/INCREASE' 와 같이 실제 문자열 값으로 추론 되도록 해줍니다.
@@ -9,9 +10,9 @@ const REMOVE = 'list/REMOVE' as const;
 const REPLACE = 'list/REPLACE' as const;
 
 // 액션 생성함수를 선언합니다
-export const add = (photo: IphotoObject) => ({
+export const add = (photos: IphotoObject[]) => ({
   type: ADD,
-  payload: photo
+  payload: photos
 });
 
 export const remove = (idx: number) => ({
@@ -59,10 +60,15 @@ function list(
   switch (action.type) {
     case "list/ADD": // case 라고 입력하고 Ctrl + Space 를 누르면 어떤 종류의 action.type들이 있는지 확인 할 수 있습니다.
       return produce(state, draft => {
-        let photoObject:IphotoObject = action.payload;
-        photoObject.idx = state.last_idx++;
-        draft.photoList.push(photoObject)
-        draft.last_idx = photoObject.idx;
+        let photoObjects:IphotoObject[] = action.payload;
+        for (let i=0, j=photoObjects.length; i<j; i++)
+        {
+          let photoObject = photoObjects[i];
+          photoObject.idx = state.last_idx + i + 1;
+          draft.photoList.push(photoObject)
+        }
+        
+        draft.last_idx = state.last_idx + photoObjects.length;
       });
     case "list/REMOVE":
       return produce(state, draft => {
@@ -73,9 +79,7 @@ function list(
       return produce(state, draft => {
         const index = draft.photoList.findIndex(photo => photo.idx === action.payload.idx);
         let photoObject:IphotoObject = action.payload;
-        photoObject.idx = state.last_idx++;
         draft.photoList[index] = photoObject;
-        draft.last_idx = photoObject.idx;
       });
     default:
       return state;

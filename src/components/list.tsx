@@ -1,79 +1,100 @@
 import React, { Component, useState } from 'react';
 import Photo from './photo'
 import { IphotoObject } from '../interface/index';
+import style from './list.module.css'
+import { codePointAt } from 'core-js/fn/string';
+import {getGCD} from '../utils/index';
 
 
 interface IListProps {
   photos: IphotoObject[];
-  onAdd : (photo: IphotoObject) => void;
+  onAdd : (photos: IphotoObject[]) => void;
   onRemove: (idx: number) => void;
   onReplace: (photo: IphotoObject) => void;
 }
 
 interface IListState {
-  
+  column: number
 }
 
 class List extends Component<IListProps, IListState> {
   constructor(props: IListProps) {
     super(props);
+    this.state = {
+      column : 0
+    };
+    this.onClick = this.onClick.bind(this)
   }
-  // componentWillMount()
-  // {
-  //   // this.setState({
-  //   //   name: "ssibal",
-  //   //   photos: [
-  //   //     {
-  //   //     'src' :'https://marcel2021.github.io/assets/imgs/main.jpg',
-  //   //     'width' : 4,
-  //   //     'height' :4
-  //   //     }
-  //   //   ]
-  //   // })
-  //   // ?ver='+new Date().getTime()
-  //   fetch('https://marcel2021.github.io/PhotosDatabase.json?ver='+new Date().getTime())
-  //   .then(response => response.json())
-  //   .then((jsonData) => {
-  //     // jsonData is parsed json object received from url
-  //     this.setState({
-  //       name: "ssibal",
-  //       photos: jsonData.photos
-  //     })
-  //     console.log(jsonData)
-  //   })
-  //   .catch((error) => {
-  //     // handle your errors here
-  //     console.error(error)
-  //   })
 
-  // }
+  onClick()
+  {
+    ipcRenderer.once('chosenFile', (event, ret:{code; data;}) => {
+      const {code, data} = ret
+      switch (code) {
+        case 0:
+          let photos = []
+          for (let idx=0, j=data.length; idx<j; idx++)
+          {
+            const item = data[idx];
+            const {width, height} = item.size;
+            const GCD = getGCD(width, height);
+            const photo: IphotoObject = {
+              idx: -1,
+              width: width/GCD,
+              height: height/GCD,
+              src: `data:image/${item.ext.toLowerCase().split(".")[1]};base64,${item.data}`,
+              new: true
+            }
+            photos.push(photo)
+          }
+          this.props.onAdd(photos)
+          break;
+      
+        default:
+          break;
+      }
+    })
+    const res = ipcRenderer.sendSync("add_img", {multi: true});
+    console.log("sendSync to add in list.tsx : " + res);
+  }
 
-  // onClick() {
-  //   this.setState((previousState, props) => ({
-  //     toggle: !previousState.toggle,
-  //   }));
-  //   fetch('https://marcel2021.github.io/PhotosDatabase.json?ver='+new Date().getTime())
-  //   .then(response => response.json())
-  //   .then((jsonData) => {
-  //     // jsonData is parsed json object received from url
-  //     console.log(jsonData)
-  //   })
-  //   .catch((error) => {
-  //     // handle your errors here
-  //     console.error(error)
-  //   })
-  // }
+  componentDidMount()
+  {
+    fetch('https://marcel2021.github.io/PhotosDatabase.json?ver='+new Date().getTime())
+      .then(response => response.json())
+      .then((jsonData) => {
+        // jsonData is parsed json object received from url
+        let initPhotos: IphotoObject[] = [];
+        for (let i=0, j=jsonData.photos.length; i<j; i++)
+        {
+          const item = jsonData.photos[i]
+          const photo:IphotoObject = {
+            idx: i,
+            src: `https://marcel2021.github.io${item.src}`,
+            width: item.width,
+            height: item.height,
+            new: false
+          }
+          initPhotos.push(photo)
+        }
+        this.props.onAdd(initPhotos)
+      })
+      .catch((error) => {
+        // handle your errors here
+        console.error(error)
+      })
+  }
 
   render() {
-    const {photos, onAdd, onRemove, onReplace} = this.props;
+    const {photos, onRemove, onReplace} = this.props;
+    const {innerWidth} = window;
     return (
       <div>
-        <button onClick={()=>onAdd({idx:-1, src:"/assets/imgs/main.jpg",width:5,height:5})}>추가</button>
-        <button onClick={()=>onAdd({idx:-1, src:"/assets/imgs/main.jpg",width:5,height:5})}>삭제</button>
+        <button className={style.btn} onClick={this.onClick}>추가</button>
         {
           photos.map( (photo, i) => {
             return (
-              <Photo idx={photo.idx} src={photo.src} width={photo.width} height={photo.height} key={i}></Photo>
+              <Photo idx={photo.idx} src={photo.src} width={photo.width} height={photo.height} new={photo.new} onRemove={onRemove} onReplace={onReplace} key={i}></Photo>
             );
           })
         }
