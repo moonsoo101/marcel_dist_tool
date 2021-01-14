@@ -5,9 +5,21 @@ import * as path from 'path';
 import * as fs from 'fs'
 import installExtension, { REDUX_DEVTOOLS, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import imageSize from 'image-size'
+import simpleGit, {SimpleGit, SimpleGitOptions} from 'simple-git';
 
 // 1. Gabage Collection이 일어나지 않도록 함수 밖에 선언함.
 let mainWindow: BrowserWindow;
+const dist_dir_path = './dist/git/marcel2021.github.io'
+let git: SimpleGit;
+const localBranch = `gh-pages${new Date().getTime()}`
+
+// const options: SimpleGitOptions = {
+//   baseDir: dist_dir_path,
+//   binary: 'git',
+//   maxConcurrentProcesses: 6
+// };
+
+console.log("resource : " +__dirname);
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
@@ -35,11 +47,6 @@ async function createWindow() {
   mainWindow.maximize();
   mainWindow.show();
 
-  ipcMain.on('hello', (event: any, args: any) => {
-    console.log(args)
-    event.sender.send('hello', `Hello from main process: ${new Date()}.`)
-  })
-
   // 3. and load the index.html of the app.
   if (isDev) {
     // 개발 중에는 개발 도구에서 호스팅하는 주소에서 로드
@@ -56,6 +63,76 @@ async function createWindow() {
     // 프로덕션 환경에서는 패키지 내부 리소스에 접근
     mainWindow.loadFile(path.join(__dirname, '../build/index.html'));
   }
+  const ssh_dir = path.join(app.getPath('home'), '.ssh')
+  if (!fs.existsSync(ssh_dir))
+  { 
+    fs.mkdirSync(ssh_dir, { recursive: true })
+    console.log("make .ssh dir")
+  }
+
+  const pri_key_path = path.join(ssh_dir, 'id_rsa-marcel')
+  if (!fs.existsSync(pri_key_path)) 
+  {
+    fs.copyFileSync(path.join(__dirname, 'extraResources/.ssh/id_rsa-marcel'), pri_key_path)
+    console.log("copy private key")
+  }
+
+  const pub_key_path = path.join(ssh_dir, 'id_rsa-marcel.pub')
+  if (!fs.existsSync(pub_key_path))
+  {
+    fs.copyFileSync(path.join(__dirname, 'extraResources/.ssh/id_rsa-marcel.pub'), pub_key_path)
+    console.log("copy pub key")
+  }
+  
+  const config_path = path.join(ssh_dir, 'config')
+  if (!fs.existsSync(config_path))
+  {
+    fs.copyFileSync(path.join(__dirname, 'extraResources/.ssh/config'), config_path)
+    console.log("copy config")
+  }
+  else
+  {
+    const old_conf = fs.readFileSync(config_path)
+    const new_conf = fs.readFileSync(path.join(__dirname, 'extraResources/.ssh/config'))
+    //새로운 conf내용 없음
+    if ( old_conf.toString().indexOf( new_conf.toString() ) === -1 )
+    {
+      fs.appendFileSync(config_path, new_conf.toString())
+      console.log("append config")
+    }
+    else
+      console.log("ssh config file is up to date")
+  }
+
+  const host_path = path.join(ssh_dir, 'known_hosts')
+  if (!fs.existsSync(host_path))
+  {
+    fs.copyFileSync(path.join(__dirname, 'extraResources/.ssh/known_hosts'), host_path)
+    console.log("copy config")
+  }
+  else
+  {
+    const old_host = fs.readFileSync(host_path)
+    const new_host = fs.readFileSync(path.join(__dirname, 'extraResources/.ssh/known_hosts'))
+    //새로운 conf내용 없음
+    if ( old_host.toString().indexOf( new_host.toString() ) === -1 )
+    {
+      fs.appendFileSync(host_path, new_host.toString())
+      console.log("append config")
+    }
+    else
+      console.log("ssh config file is up to date")
+  }
+
+  if (!fs.existsSync(dist_dir_path)) 
+    fs.mkdirSync(dist_dir_path, { recursive: true })
+
+  // const img_fold = path.join(dist_dir_path, 'assets/imgs')
+  // if (!fs.existsSync(img_fold)) 
+  //   fs.mkdirSync(img_fold, { recursive: true })
+
+  git = simpleGit(dist_dir_path);
+  git.customBinary( path.join(__dirname, 'extraResources/MinGit/2.30.0/cmd/git.exe') )
 
   // Emitted when the window is closed.
   mainWindow.on('closed', () => {
@@ -80,6 +157,114 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+function initGit(event:IpcMainEvent, message:any)
+{
+  console.debug("start to init git")
+  git.init()
+  .then(function onInit (initResult) { console.log(initResult) })
+  .then(() => git.addRemote('origin', 'git@github.com-marcel:marcel2021/marcel2021.github.io.git'))
+  .then(function onRemoteAdd (addRemoteResult) { console.log(addRemoteResult); checkoutGit(event, message); })
+  .catch(err => 
+    {
+      if ( err.message.indexOf("remote origin already exists") !=-1 )
+      {
+        git.getRemotes(true)
+          .then((remote_list)=>
+          {
+            const index:number = remote_list.findIndex(remote => remote.name == 'origin');
+            if (remote_list[index].refs.push != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git' && remote_list[index].refs.fetch != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git')
+            {
+              console.error("remote origin inits wrong")
+              git.removeRemote("origin").then(()=>
+              {
+                console.debug("origin removed")
+                initGit(event, message)
+              }).catch(err => 
+                {
+                  console.error("===removeRemote fail===")
+                  console.error(err)
+                  console.error("=====================")
+                  event.returnValue = "fail1"
+                })
+            }
+            console.debug("remote origin already inits")
+            checkoutGit(event, message)
+          }).catch(err => 
+            {
+              console.error("===getRemotes fail===")
+              console.error(err)
+              console.error("=====================")
+              event.returnValue = "fail2"
+            })
+      }
+      console.log(err)
+      console.log("init error");
+    });
+
+}
+
+function checkoutGit(event:IpcMainEvent, message:any)
+{
+  console.log("checkout")
+  git.fetch()
+    .then( (res) =>
+      {
+        console.log("fetch success")
+        git.checkoutBranch(localBranch, 'origin/gh-pages')
+          .then( (res) => 
+          {
+            console.log("checkout success");
+            gitPullPush(event, message)
+          })
+          .catch( err => {
+            console.log(`checkout err : ${err}`)
+            if (err.message.indexOf("already exists") !==-1)
+              checkoutGit(event, message)
+          })
+      }).catch( err => {
+        console.log(`Fetch error : ${err}`)
+        event.returnValue = "fail3"
+      });
+}
+
+function gitPullPush(event:IpcMainEvent, message:any)
+{
+  saveImage(message);
+  git
+  .pull()
+  .add('./*')
+  .commit(`update at : ${new Date().getTime()}`)
+  .push('origin', 'HEAD:gh-pages')
+    .then( (res) => 
+    {
+      console.log("push success");
+      git.checkoutLocalBranch('init')
+      .then(()=> 
+      {
+        git.deleteLocalBranch(localBranch)
+        .then(() => event.returnValue = "success" )
+        .catch((err)=>event.returnValue = "fail6")
+      })
+      .catch( (err)=> {
+        console.log("fail to checkout main local ")
+        console.log(err);
+        if ( err.message.indexOf("already exists") !=-1 )
+        {
+          git.checkout('init').then((res) => {
+            git.deleteLocalBranch(localBranch).then(() => event.returnValue = "success" )
+            .catch((err)=>event.returnValue = "fail6")
+          })
+          .catch((err) => event.returnValue = "fail5")
+        }
+      })
+    })
+    .catch( (err) => {
+      console.log( "push error ")
+      console.log(err);
+      event.returnValue = "fail4"
+    });
+}
 
 // The function triggered by your button
 function selectImageFile(event: IpcMainEvent, message : any) {
@@ -122,20 +307,59 @@ function selectImageFile(event: IpcMainEvent, message : any) {
     event.reply("chosenFile", {code : -2, data : {}});  
     event.returnValue = "fail"
   });
-
-  // const filePath = dialog.showOpenDialog({ properties: ['openFile'] })[0];
-  // const fileName = path.basename(filePath);
-
-  // // Copy the chosen file to the application's data path
-  // fs.copyFile(filePath, (app.getPath('userData') + fileName), (err) => {
-  //   console.log(app.getPath('userData'))
-  //   if (err) throw err;
-  //   console.log('Image ' + fileName + ' stored.');
-
-    // At that point, store some information like the file name for later use
-  // });
 }
 
+function saveImage(message:any)
+{
+  const image_dir = path.join(dist_dir_path, 'assets/imgs')
+  let jsonData = {photos: [], date: new Date().getTime()};
+  for (let i=0, j=message.length; i<j; i++)
+  {
+    let new_filename;
+    const photo = message[i]
+    if (photo.new)
+    {
+      const base64ContentArray = photo.src.split(",")     
+      // base64 content cannot contain whitespaces but nevertheless skip if there are!
+      const mimeType = base64ContentArray[0].match(/[^:\s*]\w+\/[\w-+\d.]+(?=[;| ])/)[0]
+      const ext = mimeType.split('/')[1]
+      let base64Data = base64ContentArray[1]
+      fs.writeFileSync(path.join(image_dir, `${i}.${ext}`), base64Data , 'base64')
+      new_filename = `/assets/imgs/${i}.${ext}`
+      console.log(`save new img : ${i}.${ext}`)
+    }
+    //이전 파일
+    else
+    {
+      let [fileName, ext] = path.basename(photo.src).split('.')
+      ext = ext.split("?")[0]
+      new_filename = `/assets/imgs/${i}.${ext}`
+      //순서 바뀐 경우
+      if (i!==photo.idx)
+      {
+        fs.renameSync(path.join(image_dir,`${fileName}.${ext}`), path.join(image_dir,`${i}.${ext}`))
+        console.log(`rename img : ${fileName}.${ext} => ${i}.${ext}`)
+      }
+    }
+    jsonData.photos.push({
+      "src": new_filename,
+      "width": photo.width,
+      "height": photo.height
+    })
+  }
+  fs.writeFileSync(path.join(dist_dir_path, "./PhotosDatabase.json"), JSON.stringify(jsonData), 'utf8')
+
+  const fileList = fs.readdirSync(image_dir).sort(function(a, b)  {
+    return parseInt(a) - parseInt(b);
+  })
+
+  for (let i=jsonData.photos.length, j=fileList.length; i<j; i++)
+  {
+    fs.unlinkSync(path.join(image_dir, fileList[i]))
+    console.log(`delete : ${fileList[i]}`)
+  }
+
+}
 
 // listen the channel `message` and resend the received message to the renderer process
 ipcMain.on('add_img', (event: IpcMainEvent, message: any) => {
@@ -143,4 +367,17 @@ ipcMain.on('add_img', (event: IpcMainEvent, message: any) => {
   // event.returnValue = "success to receive renderer message"
   selectImageFile(event, message);
   console.log("Receive from renderer : " + message);
+})
+
+ipcMain.on("distribution", (event: IpcMainEvent, message: any) => {
+  initGit(event, message)
+  console.log("Receive from renderer : " + message);
+})
+
+ipcMain.on("dist_complete", (event: IpcMainEvent, message: any) => {
+  setTimeout(() => {
+    console.log("Reload");
+    event.returnValue = "realod";
+    mainWindow.reload();
+  }, 10000);
 })

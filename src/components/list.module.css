@@ -9,3 +9,6 @@
     cursor: pointer;
     border-radius: 5px;
   }
+.loading_overlay {
+  position: absolute !important;
+}
