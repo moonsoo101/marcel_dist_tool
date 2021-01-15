@@ -1,5 +1,5 @@
 // public/electron.ts
-import { app, BrowserWindow, ipcMain, IpcMainEvent, dialog, OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainEvent, IpcMainInvokeEvent, dialog, OpenDialogOptions } from 'electron';
 import * as isDev from 'electron-is-dev';
 import * as path from 'path';
 import * as fs from 'fs'
@@ -267,7 +267,7 @@ function gitPullPush(event:IpcMainEvent, message:any)
 }
 
 // The function triggered by your button
-function selectImageFile(event: IpcMainEvent, message : any) {
+async function selectImageFile(event:IpcMainInvokeEvent, message : any) {
 
   // Open a dialog to ask for the file path
   const options: OpenDialogOptions = {
@@ -280,33 +280,28 @@ function selectImageFile(event: IpcMainEvent, message : any) {
     properties: message.multi ? ['openFile', 'multiSelections'] : ['openFile']
   };
 
-  let fileSelectionPromise = dialog.showOpenDialog(options);
-  fileSelectionPromise.then(function (res) {
-      if (res.filePaths.length === 0 || res.canceled)
+  
+  try {
+    let {filePaths, canceled} = await dialog.showOpenDialog(options);  
+    if (filePaths.length === 0 || canceled)
       {
         console.log("not selected")
-        event.reply("chosenFile", {code : -1, data : {}});
+        return {code : -1, data : {}};
       }
       else
       {
         let retData = [];
-        for (let index=0, len=res.filePaths.length; index<len; index++)
+        for (let index=0, len=filePaths.length; index<len; index++)
         {
-          const base64 = fs.readFileSync(res.filePaths[index]).toString('base64');
-          const dimension = imageSize(res.filePaths[index])
-          retData.push({data: base64, ext : path.extname(res.filePaths[index]), size: dimension})
+          const base64 = fs.readFileSync(filePaths[index]).toString('base64');
+          const dimension = imageSize(filePaths[index])
+          retData.push({data: base64, ext : path.extname(filePaths[index]), size: dimension})
         }
-        event.reply("chosenFile", {code : 0, data : retData});
+        return {code : 0, data : retData};
       }
-      event.returnValue = "success"
-  }).catch(function(err) {
-    console.log("=====================================");
-    console.log("fileSelectionPromise error : " + err);
-    console.log(err);
-    console.log("=====================================");
-    event.reply("chosenFile", {code : -2, data : {}});  
-    event.returnValue = "fail"
-  });
+  } catch (error) {
+    return {code : -2, data : {}};  
+  }
 }
 
 function saveImage(message:any)
@@ -362,11 +357,16 @@ function saveImage(message:any)
 }
 
 // listen the channel `message` and resend the received message to the renderer process
-ipcMain.on('add_img', (event: IpcMainEvent, message: any) => {
-  // event.sender.send('message', message)
-  // event.returnValue = "success to receive renderer message"
-  selectImageFile(event, message);
+ipcMain.handle('add_img', async (event:IpcMainInvokeEvent, message: any) => {
   console.log("Receive from renderer : " + message);
+  try {
+    const res = await selectImageFile(event, message);
+    return res;
+  } catch (error) {
+    if ( "code" in error && "data" in error )
+      return error
+    return {code : -3, data : {}};
+  }
 })
 
 ipcMain.on("distribution", (event: IpcMainEvent, message: any) => {

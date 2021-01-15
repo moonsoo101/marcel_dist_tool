@@ -260,39 +260,46 @@ function gitPullPush(event, message) {
 }
 // The function triggered by your button
 function selectImageFile(event, message) {
-    // Open a dialog to ask for the file path
-    var options = {
-        title: 'Select Image file',
-        // defaultPath: '/path/to/something/',
-        // buttonLabel: 'Do it',
-        filters: [
-            { name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }
-        ],
-        properties: message.multi ? ['openFile', 'multiSelections'] : ['openFile']
-    };
-    var fileSelectionPromise = electron_1.dialog.showOpenDialog(options);
-    fileSelectionPromise.then(function (res) {
-        if (res.filePaths.length === 0 || res.canceled) {
-            console.log("not selected");
-            event.reply("chosenFile", { code: -1, data: {} });
-        }
-        else {
-            var retData = [];
-            for (var index = 0, len = res.filePaths.length; index < len; index++) {
-                var base64 = fs.readFileSync(res.filePaths[index]).toString('base64');
-                var dimension = image_size_1["default"](res.filePaths[index]);
-                retData.push({ data: base64, ext: path.extname(res.filePaths[index]), size: dimension });
+    return __awaiter(this, void 0, void 0, function () {
+        var options, _a, filePaths, canceled, retData, index, len, base64, dimension, error_1;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    options = {
+                        title: 'Select Image file',
+                        // defaultPath: '/path/to/something/',
+                        // buttonLabel: 'Do it',
+                        filters: [
+                            { name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }
+                        ],
+                        properties: message.multi ? ['openFile', 'multiSelections'] : ['openFile']
+                    };
+                    _b.label = 1;
+                case 1:
+                    _b.trys.push([1, 3, , 4]);
+                    return [4 /*yield*/, electron_1.dialog.showOpenDialog(options)];
+                case 2:
+                    _a = _b.sent(), filePaths = _a.filePaths, canceled = _a.canceled;
+                    if (filePaths.length === 0 || canceled) {
+                        console.log("not selected");
+                        return [2 /*return*/, { code: -1, data: {} }];
+                    }
+                    else {
+                        retData = [];
+                        for (index = 0, len = filePaths.length; index < len; index++) {
+                            base64 = fs.readFileSync(filePaths[index]).toString('base64');
+                            dimension = image_size_1["default"](filePaths[index]);
+                            retData.push({ data: base64, ext: path.extname(filePaths[index]), size: dimension });
+                        }
+                        return [2 /*return*/, { code: 0, data: retData }];
+                    }
+                    return [3 /*break*/, 4];
+                case 3:
+                    error_1 = _b.sent();
+                    return [2 /*return*/, { code: -2, data: {} }];
+                case 4: return [2 /*return*/];
             }
-            event.reply("chosenFile", { code: 0, data: retData });
-        }
-        event.returnValue = "success";
-    })["catch"](function (err) {
-        console.log("=====================================");
-        console.log("fileSelectionPromise error : " + err);
-        console.log(err);
-        console.log("=====================================");
-        event.reply("chosenFile", { code: -2, data: {} });
-        event.returnValue = "fail";
+        });
     });
 }
 function saveImage(message) {
@@ -338,12 +345,28 @@ function saveImage(message) {
     }
 }
 // listen the channel `message` and resend the received message to the renderer process
-electron_1.ipcMain.on('add_img', function (event, message) {
-    // event.sender.send('message', message)
-    // event.returnValue = "success to receive renderer message"
-    selectImageFile(event, message);
-    console.log("Receive from renderer : " + message);
-});
+electron_1.ipcMain.handle('add_img', function (event, message) { return __awaiter(void 0, void 0, void 0, function () {
+    var res, error_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log("Receive from renderer : " + message);
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, selectImageFile(event, message)];
+            case 2:
+                res = _a.sent();
+                return [2 /*return*/, res];
+            case 3:
+                error_2 = _a.sent();
+                if ("code" in error_2 && "data" in error_2)
+                    return [2 /*return*/, error_2];
+                return [2 /*return*/, { code: -3, data: {} }];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 electron_1.ipcMain.on("distribution", function (event, message) {
     initGit(event, message);
     console.log("Receive from renderer : " + message);

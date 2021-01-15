@@ -46,50 +46,38 @@ class List extends Component<IListProps, IListState> {
     // console.log("sendSync to reload in list.tsx : " + res1);
   }
 
-  onAddBtnClick()
+  async onAddBtnClick()
   {
-    ipcRenderer.once('chosenFile', (event, ret:{code; data;}) => {
+   
       this.setState({
         active : true
-      }, () => 
-        {
-          const {code, data} = ret
-          switch (code) {
-            case 0:
-              let photos = []
-              for (let idx=0, j=data.length; idx<j; idx++)
-              {
-                const item = data[idx];
-                const {width, height} = item.size;
-                const GCD = getGCD(width, height);
-                const photo: IphotoObject = {
-                  idx: -1,
-                  width: width/GCD,
-                  height: height/GCD,
-                  src: `data:image/${item.ext.toLowerCase().split(".")[1]};base64,${item.data}`,
-                  new: true
-                }
-                photos.push(photo)
-              }
-              this.props.onAdd(photos)
-              break;
-          
-            default:
-              break;
+      })
+      const ret = await ipcRenderer.invoke('add_img', {multi: true});
+      const {code, data} = ret
+      console.log("sendSync to add in list.tsx : " + code);
+      switch (code) {
+        case 0:
+          let photos = []
+          for (let idx=0, j=data.length; idx<j; idx++)
+          {
+            const item = data[idx];
+            const {width, height} = item.size;
+            const GCD = getGCD(width, height);
+            const photo: IphotoObject = {
+              idx: -1,
+              width: width/GCD,
+              height: height/GCD,
+              src: `data:image/${item.ext.toLowerCase().split(".")[1]};base64,${item.data}`,
+              new: true
+            }
+            photos.push(photo)
           }
-          this.setState({
-            active : false
-          })
-        })
-      })
-
-      this.setState({
-        active : true
-      })
-  
-      const res = ipcRenderer.sendSync("add_img", {multi: true});
-      console.log("sendSync to add in list.tsx : " + res);
-  
+          this.props.onAdd(photos)
+          break;
+      
+        default:
+          break;
+      }
       this.setState({
         active : false
       })
