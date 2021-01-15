@@ -1,2 +1,4 @@
-React.js + Electron with typescript
-git image distribute App with preview
+***Marcel Distribution App***
+
+Image distribution App with preview using git<br>
+Implemented by React.js + Electron with typescript
