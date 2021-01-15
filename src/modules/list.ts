@@ -8,6 +8,9 @@ import produce from 'immer';
 const ADD = 'list/ADD' as const;
 const REMOVE = 'list/REMOVE' as const;
 const REPLACE = 'list/REPLACE' as const;
+const LOADING = 'list/LOADING' as const
+const IMG_LOADED = 'list/IMG_LOADED' as const
+const SET_INIT = 'list/SET_INIT' as const
 
 // 액션 생성함수를 선언합니다
 export const add = (photos: IphotoObject[]) => ({
@@ -30,24 +33,42 @@ export const replace = (photo: IphotoObject) => ({
   payload: photo
 });
 
+export const loading = (active: boolean) => ({
+  type: LOADING,
+  payload: active
+});
+
+export const imgLoaded = ()=>({type: IMG_LOADED});
+
+export const set_init = ()=>({type: SET_INIT});
+
 // 모든 액션 겍체들에 대한 타입을 준비해줍니다.
 // ReturnType<typeof _____> 는 특정 함수의 반환값을 추론해줍니다
 // 상단부에서 액션타입을 선언 할 떄 as const 를 하지 않으면 이 부분이 제대로 작동하지 않습니다.
 type ListAction =
   | ReturnType<typeof add>
   | ReturnType<typeof remove>
-  | ReturnType<typeof replace>;
+  | ReturnType<typeof replace>
+  | ReturnType<typeof loading>
+  | ReturnType<typeof imgLoaded>
+  | ReturnType<typeof set_init>;
 
 // 이 리덕스 모듈에서 관리 할 상태의 타입을 선언합니다
 type ListState = {
   photoList: IphotoObject[];
   last_idx: number;
+  active: boolean,
+  init_loaded_cnt: number,
+  init: boolean
 };
 
 // 초기상태를 선언합니다.
 const initialState: ListState = {
   photoList: [],
-  last_idx: -1
+  last_idx: -1,
+  active: false,
+  init_loaded_cnt: 0,
+  init: false
 };
 
 // 리듀서를 작성합니다.
@@ -67,7 +88,6 @@ function list(
           photoObject.idx = state.last_idx + i + 1;
           draft.photoList.push(photoObject)
         }
-        
         draft.last_idx = state.last_idx + photoObjects.length;
       });
     case "list/REMOVE":
@@ -81,6 +101,21 @@ function list(
         let photoObject:IphotoObject = action.payload;
         draft.photoList[index] = photoObject;
       });
+    case 'list/LOADING':
+      return produce(state, draft => {
+        draft.active = action.payload;
+      });
+    case 'list/IMG_LOADED':
+      return produce(state, draft => {
+        draft.init_loaded_cnt = state.init_loaded_cnt+1;
+        if ( draft.init_loaded_cnt >= state.photoList.length )
+        draft.init = true
+      });
+    case 'list/SET_INIT':
+      return produce(state, draft => {
+        draft.init = true
+      });
+
     default:
       return state;
   }

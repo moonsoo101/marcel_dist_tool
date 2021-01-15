@@ -12,5 +12,8 @@
 .loading_overlay {
   position: absolute !important;
   width: 100%;
+}
+.full_height
+{
   height: 100%;
 }

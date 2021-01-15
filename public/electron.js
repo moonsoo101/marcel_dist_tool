@@ -1,4 +1,17 @@
 "use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -49,12 +62,20 @@ var mainWindow;
 var dist_dir_path = './dist/git/marcel2021.github.io';
 var git;
 var localBranch = "gh-pages" + new Date().getTime();
-// const options: SimpleGitOptions = {
-//   baseDir: dist_dir_path,
-//   binary: 'git',
-//   maxConcurrentProcesses: 6
-// };
-console.log("resource : " + __dirname);
+var IPCError = /** @class */ (function (_super) {
+    __extends(IPCError, _super);
+    function IPCError(m, code) {
+        var _this = _super.call(this, m) || this;
+        _this.code = code;
+        // Set the prototype explicitly.
+        Object.setPrototypeOf(_this, IPCError.prototype);
+        return _this;
+    }
+    IPCError.prototype.toString = function () {
+        return "IPC Error : {code : " + this.code + ", message : " + this.message + "}\n " + this.stack;
+    };
+    return IPCError;
+}(Error));
 function createWindow() {
     return __awaiter(this, void 0, void 0, function () {
         var ssh_dir, pri_key_path, pub_key_path, config_path, old_conf, new_conf, host_path, old_host, new_host;
@@ -177,91 +198,166 @@ electron_1.app.on('activate', function () {
     }
 });
 function initGit(event, message) {
-    console.debug("start to init git");
-    git.init()
-        .then(function onInit(initResult) { console.log(initResult); })
-        .then(function () { return git.addRemote('origin', 'git@github.com-marcel:marcel2021/marcel2021.github.io.git'); })
-        .then(function onRemoteAdd(addRemoteResult) { console.log(addRemoteResult); checkoutGit(event, message); })["catch"](function (err) {
-        if (err.message.indexOf("remote origin already exists") != -1) {
-            git.getRemotes(true)
-                .then(function (remote_list) {
-                var index = remote_list.findIndex(function (remote) { return remote.name == 'origin'; });
-                if (remote_list[index].refs.push != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git' && remote_list[index].refs.fetch != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git') {
+    return __awaiter(this, void 0, void 0, function () {
+        var init_git_res, add_remote_res, err_1, remote_list, index, remove_res, error_1, error_2;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.debug("start to init git");
+                    _a.label = 1;
+                case 1:
+                    _a.trys.push([1, 4, , 15]);
+                    return [4 /*yield*/, git.init()];
+                case 2:
+                    init_git_res = _a.sent();
+                    console.log(init_git_res);
+                    return [4 /*yield*/, git.addRemote('origin', 'git@github.com-marcel:marcel2021/marcel2021.github.io.git')];
+                case 3:
+                    add_remote_res = _a.sent();
+                    console.log(add_remote_res);
+                    return [2 /*return*/, { code: 0, message: "git init success" }
+                        // handle add remote error 
+                    ];
+                case 4:
+                    err_1 = _a.sent();
+                    if (!(err_1.message.indexOf("remote origin already exists") != -1)) return [3 /*break*/, 14];
+                    _a.label = 5;
+                case 5:
+                    _a.trys.push([5, 13, , 14]);
+                    return [4 /*yield*/, git.getRemotes(true)];
+                case 6:
+                    remote_list = _a.sent();
+                    index = remote_list.findIndex(function (remote) { return remote.name == 'origin'; });
+                    if (!(remote_list[index].refs.push != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git' && remote_list[index].refs.fetch != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git')) return [3 /*break*/, 11];
+                    _a.label = 7;
+                case 7:
+                    _a.trys.push([7, 9, , 10]);
                     console.error("remote origin inits wrong");
-                    git.removeRemote("origin").then(function () {
-                        console.debug("origin removed");
-                        initGit(event, message);
-                    })["catch"](function (err) {
-                        console.error("===removeRemote fail===");
-                        console.error(err);
-                        console.error("=====================");
-                        event.returnValue = "fail1";
-                    });
-                }
-                console.debug("remote origin already inits");
-                checkoutGit(event, message);
-            })["catch"](function (err) {
-                console.error("===getRemotes fail===");
-                console.error(err);
-                console.error("=====================");
-                event.returnValue = "fail2";
-            });
-        }
-        console.log(err);
-        console.log("init error");
+                    return [4 /*yield*/, git.removeRemote("origin")];
+                case 8:
+                    remove_res = _a.sent();
+                    console.debug("origin removed");
+                    return [2 /*return*/, { code: 0, message: "git init&add remote success by removing wrong origin" }
+                        //handle remove remote error
+                    ];
+                case 9:
+                    error_1 = _a.sent();
+                    console.error("===removeRemote fail===");
+                    console.error(err_1);
+                    console.error("=====================");
+                    throw new IPCError("removeRemote fail", -1);
+                case 10: return [3 /*break*/, 12];
+                case 11:
+                    console.debug("remote origin already inits, no need to init again");
+                    return [2 /*return*/, { code: 0, message: "git init success, already init&add origin" }];
+                case 12: return [3 /*break*/, 14];
+                case 13:
+                    error_2 = _a.sent();
+                    console.error("===getRemotes fail===");
+                    console.error(err_1);
+                    console.error("=====================");
+                    if (error_2 instanceof IPCError)
+                        throw error_2;
+                    throw new IPCError("getRemotes fail", -1);
+                case 14:
+                    // error for init somewhere...
+                    console.log(err_1);
+                    console.log("init error somewhere");
+                    throw new IPCError("git init error somewhere", -1);
+                case 15: return [2 /*return*/];
+            }
+        });
     });
 }
 function checkoutGit(event, message) {
-    console.log("checkout");
-    git.fetch()
-        .then(function (res) {
-        console.log("fetch success");
-        git.checkoutBranch(localBranch, 'origin/gh-pages')
-            .then(function (res) {
-            console.log("checkout success");
-            gitPullPush(event, message);
-        })["catch"](function (err) {
-            console.log("checkout err : " + err);
-            if (err.message.indexOf("already exists") !== -1)
-                checkoutGit(event, message);
+    return __awaiter(this, void 0, void 0, function () {
+        var error_3, error_4;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 3, , 8]);
+                    console.log("checkout");
+                    return [4 /*yield*/, git.fetch()];
+                case 1:
+                    _a.sent();
+                    console.log("fetch success");
+                    return [4 /*yield*/, git.checkoutBranch(localBranch, 'origin/gh-pages')];
+                case 2:
+                    _a.sent();
+                    console.log("checkout success");
+                    return [2 /*return*/, { code: 0, message: "git checkout new branch" }];
+                case 3:
+                    error_3 = _a.sent();
+                    if (!(error_3.message.indexOf("already exists") !== -1)) return [3 /*break*/, 7];
+                    _a.label = 4;
+                case 4:
+                    _a.trys.push([4, 6, , 7]);
+                    return [4 /*yield*/, git.checkout(localBranch)];
+                case 5:
+                    _a.sent();
+                    return [2 /*return*/, { code: 0, message: "git checkout existing branch" }];
+                case 6:
+                    error_4 = _a.sent();
+                    throw new IPCError("fail to checkout existing branch", -1);
+                case 7: 
+                // if (error instanceof IPCError)
+                //   throw error;
+                throw new IPCError("git checout error somewhere", -1);
+                case 8: return [2 /*return*/];
+            }
         });
-    })["catch"](function (err) {
-        console.log("Fetch error : " + err);
-        event.returnValue = "fail3";
     });
 }
 function gitPullPush(event, message) {
-    saveImage(message);
-    git
-        .pull()
-        .add('./*')
-        .commit("update at : " + new Date().getTime())
-        .push('origin', 'HEAD:gh-pages')
-        .then(function (res) {
-        console.log("push success");
-        git.checkoutLocalBranch('init')
-            .then(function () {
-            git.deleteLocalBranch(localBranch)
-                .then(function () { return event.returnValue = "success"; })["catch"](function (err) { return event.returnValue = "fail6"; });
-        })["catch"](function (err) {
-            console.log("fail to checkout main local ");
-            console.log(err);
-            if (err.message.indexOf("already exists") != -1) {
-                git.checkout('init').then(function (res) {
-                    git.deleteLocalBranch(localBranch).then(function () { return event.returnValue = "success"; })["catch"](function (err) { return event.returnValue = "fail6"; });
-                })["catch"](function (err) { return event.returnValue = "fail5"; });
+    return __awaiter(this, void 0, void 0, function () {
+        var err_2, error_5;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 4, , 10]);
+                    saveImage(message);
+                    return [4 /*yield*/, git.pull().add('./*').commit("update at : " + new Date().getTime()).push('origin', 'HEAD:gh-pages')];
+                case 1:
+                    _a.sent();
+                    console.log("push success");
+                    return [4 /*yield*/, git.checkoutLocalBranch('init')];
+                case 2:
+                    _a.sent();
+                    return [4 /*yield*/, git.deleteLocalBranch(localBranch)];
+                case 3:
+                    _a.sent();
+                    return [2 /*return*/, { code: 0, message: "git push&checkout init branch success" }];
+                case 4:
+                    err_2 = _a.sent();
+                    console.log("fail to checkout main local ");
+                    console.log(err_2);
+                    if (!(err_2.message.indexOf("already exists") != -1)) return [3 /*break*/, 9];
+                    _a.label = 5;
+                case 5:
+                    _a.trys.push([5, 8, , 9]);
+                    return [4 /*yield*/, git.checkout('init')];
+                case 6:
+                    _a.sent();
+                    return [4 /*yield*/, git.deleteLocalBranch(localBranch)];
+                case 7:
+                    _a.sent();
+                    return [2 /*return*/, { code: 0, message: "git push&checkout already existing init branch success" }];
+                case 8:
+                    error_5 = _a.sent();
+                    throw new IPCError("gitPullPush error at checkout&delete old branch", -1);
+                case 9: 
+                // if (err instanceof IPCError)
+                //   throw err;
+                throw new IPCError("gitPullPush error somewhere", -1);
+                case 10: return [2 /*return*/];
             }
         });
-    })["catch"](function (err) {
-        console.log("push error ");
-        console.log(err);
-        event.returnValue = "fail4";
     });
 }
 // The function triggered by your button
 function selectImageFile(event, message) {
     return __awaiter(this, void 0, void 0, function () {
-        var options, _a, filePaths, canceled, retData, index, len, base64, dimension, error_1;
+        var options, _a, filePaths, canceled, retData, index, len, base64, dimension, error_6;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -295,7 +391,7 @@ function selectImageFile(event, message) {
                     }
                     return [3 /*break*/, 4];
                 case 3:
-                    error_1 = _b.sent();
+                    error_6 = _b.sent();
                     return [2 /*return*/, { code: -2, data: {} }];
                 case 4: return [2 /*return*/];
             }
@@ -346,11 +442,11 @@ function saveImage(message) {
 }
 // listen the channel `message` and resend the received message to the renderer process
 electron_1.ipcMain.handle('add_img', function (event, message) { return __awaiter(void 0, void 0, void 0, function () {
-    var res, error_2;
+    var res, error_7;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                console.log("Receive from renderer : " + message);
+                console.log("call add_img from renderer");
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 3, , 4]);
@@ -359,22 +455,45 @@ electron_1.ipcMain.handle('add_img', function (event, message) { return __awaite
                 res = _a.sent();
                 return [2 /*return*/, res];
             case 3:
-                error_2 = _a.sent();
-                if ("code" in error_2 && "data" in error_2)
-                    return [2 /*return*/, error_2];
+                error_7 = _a.sent();
+                if ("code" in error_7 && "data" in error_7)
+                    return [2 /*return*/, error_7];
                 return [2 /*return*/, { code: -3, data: {} }];
             case 4: return [2 /*return*/];
         }
     });
 }); });
-electron_1.ipcMain.on("distribution", function (event, message) {
-    initGit(event, message);
-    console.log("Receive from renderer : " + message);
-});
-electron_1.ipcMain.on("dist_complete", function (event, message) {
-    setTimeout(function () {
-        console.log("Reload");
-        event.returnValue = "realod";
-        mainWindow.reload();
-    }, 10000);
-});
+electron_1.ipcMain.handle("distribution", function (event, message) { return __awaiter(void 0, void 0, void 0, function () {
+    var res, error_8;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 4, , 5]);
+                console.log("call distribution from renderer");
+                return [4 /*yield*/, initGit(event, message)];
+            case 1:
+                _a.sent();
+                return [4 /*yield*/, checkoutGit(event, message)];
+            case 2:
+                _a.sent();
+                return [4 /*yield*/, gitPullPush(event, message)];
+            case 3:
+                res = _a.sent();
+                return [2 /*return*/, res];
+            case 4:
+                error_8 = _a.sent();
+                return [2 /*return*/, { code: -1, message: error_8.message }];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
+electron_1.ipcMain.handle("dist_complete", function (event, message) { return __awaiter(void 0, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 10000); })];
+            case 1:
+                _a.sent();
+                return [2 /*return*/, mainWindow.reload()];
+        }
+    });
+}); });

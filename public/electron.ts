@@ -13,13 +13,19 @@ const dist_dir_path = './dist/git/marcel2021.github.io'
 let git: SimpleGit;
 const localBranch = `gh-pages${new Date().getTime()}`
 
-// const options: SimpleGitOptions = {
-//   baseDir: dist_dir_path,
-//   binary: 'git',
-//   maxConcurrentProcesses: 6
-// };
+class IPCError extends Error {
+  code:number
+  constructor(m: string, code: number) {
+      super(m);
+      this.code = code
+      // Set the prototype explicitly.
+      Object.setPrototypeOf(this, IPCError.prototype);
+  }
 
-console.log("resource : " +__dirname);
+  toString() {
+      return `IPC Error : {code : ${this.code}, message : ${this.message}}\n ${this.stack}`
+  }
+}
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
@@ -158,112 +164,112 @@ app.on('activate', () => {
   }
 });
 
-function initGit(event:IpcMainEvent, message:any)
+async function initGit(event:IpcMainInvokeEvent, message:any)
 {
   console.debug("start to init git")
-  git.init()
-  .then(function onInit (initResult) { console.log(initResult) })
-  .then(() => git.addRemote('origin', 'git@github.com-marcel:marcel2021/marcel2021.github.io.git'))
-  .then(function onRemoteAdd (addRemoteResult) { console.log(addRemoteResult); checkoutGit(event, message); })
-  .catch(err => 
+  try {
+    const init_git_res = await git.init()
+    console.log(init_git_res)
+    const add_remote_res = await git.addRemote('origin', 'git@github.com-marcel:marcel2021/marcel2021.github.io.git')
+    console.log(add_remote_res)
+    return { code : 0, message : "git init success"}
+    // handle add remote error 
+  } catch (err) {
+    // if git already has remote
+    if ( err.message.indexOf("remote origin already exists") !=-1 )
     {
-      if ( err.message.indexOf("remote origin already exists") !=-1 )
-      {
-        git.getRemotes(true)
-          .then((remote_list)=>
-          {
-            const index:number = remote_list.findIndex(remote => remote.name == 'origin');
-            if (remote_list[index].refs.push != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git' && remote_list[index].refs.fetch != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git')
-            {
-              console.error("remote origin inits wrong")
-              git.removeRemote("origin").then(()=>
-              {
-                console.debug("origin removed")
-                initGit(event, message)
-              }).catch(err => 
-                {
-                  console.error("===removeRemote fail===")
-                  console.error(err)
-                  console.error("=====================")
-                  event.returnValue = "fail1"
-                })
-            }
-            console.debug("remote origin already inits")
-            checkoutGit(event, message)
-          }).catch(err => 
-            {
-              console.error("===getRemotes fail===")
-              console.error(err)
-              console.error("=====================")
-              event.returnValue = "fail2"
-            })
-      }
-      console.log(err)
-      console.log("init error");
-    });
-
-}
-
-function checkoutGit(event:IpcMainEvent, message:any)
-{
-  console.log("checkout")
-  git.fetch()
-    .then( (res) =>
-      {
-        console.log("fetch success")
-        git.checkoutBranch(localBranch, 'origin/gh-pages')
-          .then( (res) => 
-          {
-            console.log("checkout success");
-            gitPullPush(event, message)
-          })
-          .catch( err => {
-            console.log(`checkout err : ${err}`)
-            if (err.message.indexOf("already exists") !==-1)
-              checkoutGit(event, message)
-          })
-      }).catch( err => {
-        console.log(`Fetch error : ${err}`)
-        event.returnValue = "fail3"
-      });
-}
-
-function gitPullPush(event:IpcMainEvent, message:any)
-{
-  saveImage(message);
-  git
-  .pull()
-  .add('./*')
-  .commit(`update at : ${new Date().getTime()}`)
-  .push('origin', 'HEAD:gh-pages')
-    .then( (res) => 
-    {
-      console.log("push success");
-      git.checkoutLocalBranch('init')
-      .then(()=> 
-      {
-        git.deleteLocalBranch(localBranch)
-        .then(() => event.returnValue = "success" )
-        .catch((err)=>event.returnValue = "fail6")
-      })
-      .catch( (err)=> {
-        console.log("fail to checkout main local ")
-        console.log(err);
-        if ( err.message.indexOf("already exists") !=-1 )
+      try {
+        const remote_list = await git.getRemotes(true)
+        const index:number = remote_list.findIndex(remote => remote.name == 'origin');
+        //wrong origin
+        if (remote_list[index].refs.push != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git' && remote_list[index].refs.fetch != 'git@github.com-marcel:marcel2021/marcel2021.github.io.git')
         {
-          git.checkout('init').then((res) => {
-            git.deleteLocalBranch(localBranch).then(() => event.returnValue = "success" )
-            .catch((err)=>event.returnValue = "fail6")
-          })
-          .catch((err) => event.returnValue = "fail5")
+          try {
+            console.error("remote origin inits wrong")
+            const remove_res = await git.removeRemote("origin")
+            console.debug("origin removed")
+            return { code : 0, message : "git init&add remote success by removing wrong origin"}
+            //handle remove remote error
+          } catch (error) {
+            console.error("===removeRemote fail===")
+            console.error(err)
+            console.error("=====================")
+            throw new IPCError("removeRemote fail", -1)
+          }
         }
-      })
-    })
-    .catch( (err) => {
-      console.log( "push error ")
-      console.log(err);
-      event.returnValue = "fail4"
-    });
+        else
+        {
+          console.debug("remote origin already inits, no need to init again")
+          return { code : 0, message : "git init success, already init&add origin"}
+        }
+        // handle get remote error
+      } catch (error) {
+        console.error("===getRemotes fail===")
+        console.error(err)
+        console.error("=====================")
+        if ( error instanceof IPCError)
+          throw error
+        throw new IPCError("getRemotes fail", -1)
+      }
+    }
+    // error for init somewhere...
+    console.log(err)
+    console.log("init error somewhere")
+    throw new IPCError("git init error somewhere", -1)
+  }
+}
+
+async function checkoutGit(event:IpcMainInvokeEvent, message:any)
+{
+  try {
+    console.log("checkout")
+    await git.fetch()
+    console.log("fetch success")
+    await git.checkoutBranch(localBranch, 'origin/gh-pages')
+    console.log("checkout success");
+    return { code : 0, message : "git checkout new branch"}
+  } catch (error) {
+    if (error.message.indexOf("already exists") !==-1)
+    {
+      try {
+        await git.checkout(localBranch)
+        return { code : 0, message : "git checkout existing branch"}
+      } catch (error) {
+        throw new IPCError("fail to checkout existing branch", -1)
+      }
+    }
+    // if (error instanceof IPCError)
+    //   throw error;
+    throw new IPCError("git checout error somewhere", -1)
+  }
+}
+
+async function gitPullPush(event:IpcMainInvokeEvent, message:any)
+{
+  try {
+    saveImage(message);
+    await git.pull().add('./*').commit(`update at : ${new Date().getTime()}`).push('origin', 'HEAD:gh-pages') 
+    console.log("push success");
+    await git.checkoutLocalBranch('init')
+    await git.deleteLocalBranch(localBranch)
+    return { code : 0, message : "git push&checkout init branch success"}
+  } catch (err) {
+    console.log("fail to checkout main local ")
+    console.log(err);
+    if ( err.message.indexOf("already exists") !=-1 )
+    {
+      try {
+        await git.checkout('init')
+        await git.deleteLocalBranch(localBranch)
+        return { code : 0, message : "git push&checkout already existing init branch success"}
+      } catch (error) {
+        throw new IPCError("gitPullPush error at checkout&delete old branch", -1)
+      }
+    } 
+    // if (err instanceof IPCError)
+    //   throw err;
+    throw new IPCError("gitPullPush error somewhere", -1)
+  }
 }
 
 // The function triggered by your button
@@ -280,7 +286,6 @@ async function selectImageFile(event:IpcMainInvokeEvent, message : any) {
     properties: message.multi ? ['openFile', 'multiSelections'] : ['openFile']
   };
 
-  
   try {
     let {filePaths, canceled} = await dialog.showOpenDialog(options);  
     if (filePaths.length === 0 || canceled)
@@ -358,7 +363,7 @@ function saveImage(message:any)
 
 // listen the channel `message` and resend the received message to the renderer process
 ipcMain.handle('add_img', async (event:IpcMainInvokeEvent, message: any) => {
-  console.log("Receive from renderer : " + message);
+  console.log("call add_img from renderer");
   try {
     const res = await selectImageFile(event, message);
     return res;
@@ -369,15 +374,19 @@ ipcMain.handle('add_img', async (event:IpcMainInvokeEvent, message: any) => {
   }
 })
 
-ipcMain.on("distribution", (event: IpcMainEvent, message: any) => {
-  initGit(event, message)
-  console.log("Receive from renderer : " + message);
+ipcMain.handle("distribution", async (event: IpcMainInvokeEvent, message: any) => {
+  try {
+    console.log("call distribution from renderer");
+    await initGit(event, message)
+    await checkoutGit(event, message)
+    const res = await gitPullPush(event, message)
+    return res
+  } catch (error) {
+    return {code : -1, message : error.message }
+  }
 })
 
-ipcMain.on("dist_complete", (event: IpcMainEvent, message: any) => {
-  setTimeout(() => {
-    console.log("Reload");
-    event.returnValue = "realod";
-    mainWindow.reload();
-  }, 10000);
+ipcMain.handle("dist_complete", async (event: IpcMainInvokeEvent, message: any) => {
+  await new Promise(resolve => setTimeout(resolve, 10000));
+  return mainWindow.reload();
 })
