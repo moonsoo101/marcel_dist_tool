@@ -2,8 +2,6 @@ import React, { Component } from 'react';
 import { IphotoObject } from '../interface/index';
 import style from './photo.module.css'
 import {getGCD} from '../utils/index';
-import { useSelector, useDispatch } from 'react-redux';
-
 
 interface IPhotoProps extends IphotoObject {
   init: boolean;

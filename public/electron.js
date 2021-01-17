@@ -316,7 +316,12 @@ function gitPullPush(event, message) {
                 case 0:
                     _a.trys.push([0, 4, , 10]);
                     saveImage(message);
-                    return [4 /*yield*/, git.pull().add('./*').commit("update at : " + new Date().getTime()).push('origin', 'HEAD:gh-pages')];
+                    return [4 /*yield*/, git
+                            .pull()
+                            .add('./*')
+                            .addConfig('user.name', 'marcel2021')
+                            .addConfig('user.email', 'givemetherug@gmail.com')
+                            .commit("update at : " + new Date().getTime()).push('origin', 'HEAD:gh-pages')];
                 case 1:
                     _a.sent();
                     console.log("push success");

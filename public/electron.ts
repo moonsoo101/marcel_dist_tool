@@ -248,7 +248,12 @@ async function gitPullPush(event:IpcMainInvokeEvent, message:any)
 {
   try {
     saveImage(message);
-    await git.pull().add('./*').commit(`update at : ${new Date().getTime()}`).push('origin', 'HEAD:gh-pages') 
+    await git
+    .pull()
+    .add('./*')
+    .addConfig('user.name', 'marcel2021')
+    .addConfig('user.email', 'givemetherug@gmail.com')
+    .commit(`update at : ${new Date().getTime()}`).push('origin', 'HEAD:gh-pages') 
     console.log("push success");
     await git.checkoutLocalBranch('init')
     await git.deleteLocalBranch(localBranch)
